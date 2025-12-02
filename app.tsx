@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import ArchitectureDiagram from './components/ArchitectureDiagram';
 import InfoPanel from './components/InfoPanel';
-import ChatInterface from './components/ChatInterface';
 import { SystemComponent } from './types';
 
 const App: React.FC = () => {
@@ -43,9 +42,6 @@ const App: React.FC = () => {
           <InfoPanel selectedComponent={selectedComponent} />
         </div>
       </main>
-
-      {/* Floating Chat */}
-      <ChatInterface />
     </div>
   );
 };

@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { SystemComponent, ComponentType } from '../types';
-import { COLORS } from '../constants';
 
 interface InfoPanelProps {
   selectedComponent: SystemComponent | null;
