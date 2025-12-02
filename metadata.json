@@ -1,0 +1,5 @@
+{
+  "name": "NVIDIA DGX H100 Architecture Explorer",
+  "description": "An interactive, deep-dive visualization of the NVIDIA DGX H100 system architecture, featuring a topological diagram and an AI-powered technical assistant.",
+  "requestFramePermissions": []
+}
