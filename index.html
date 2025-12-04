@@ -2,36 +2,906 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NVIDIA DGX H100 Architecture</title>
-  <!-- Keeping Tailwind CDN for simplicity, though a build step could be added -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DGX H100 Node Architecture</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
   <style>
+    :root {
+      --bg: #0d0d12;
+      --chassis: #16161e;
+      --chassis-border: #3d3d4a;
+      --text: #e4e4e7;
+      --text-secondary: #8b8b96;
+      --gpu-fill: #1a3a5c;
+      --gpu-stroke: #3b82f6;
+      --nvswitch-fill: #2d2a4a;
+      --nvswitch-stroke: #8b5cf6;
+      --cpu-fill: #3d3020;
+      --cpu-stroke: #f59e0b;
+      --connectx-fill: #1a3d35;
+      --connectx-stroke: #10b981;
+      --storage-fill: #3d3520;
+      --storage-stroke: #eab308;
+      --nvlink-color: #8b5cf6;
+      --pcie-color: #f59e0b;
+      --external-color: #10b981;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
-      background-color: #0f172a;
-      /* slate-900 */
-      color: #e2e8f0;
-      /* slate-200 */
-      font-family: 'Inter', sans-serif;
+      font-family: 'IBM Plex Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .header {
+      padding: 24px 32px;
+      border-bottom: 1px solid #2a2a35;
+      background: #12121a;
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .header p {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    /* Main layout */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Diagram area */
+    .diagram-area {
+      flex: 1;
+      padding: 32px;
+      overflow: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* The chassis box */
+    .chassis {
+      background: var(--chassis);
+      border: 3px solid var(--chassis-border);
+      border-radius: 8px;
+      padding: 24px;
+      position: relative;
+      width: 100%;
+      max-width: 900px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .chassis-label {
+      position: absolute;
+      top: -12px;
+      left: 24px;
+      background: var(--chassis);
+      padding: 0 12px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--chassis-border);
+      letter-spacing: 1px;
+    }
+
+    /* Grid layout inside chassis */
+    .chassis-interior {
+      display: grid;
+      grid-template-columns: 120px 1fr 120px;
+      grid-template-rows: auto auto auto;
+      gap: 20px;
+      min-height: 500px;
+    }
+
+    /* Component base styles */
+    .component {
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 12px 8px;
+      position: relative;
+      border: 2px solid;
+    }
+
+    .component:hover {
+      transform: scale(1.03);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .component.selected {
+      box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .component-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .component-sublabel {
+      font-size: 0.65rem;
+      opacity: 0.7;
+    }
+
+    /* CPU section */
+    .cpu-section {
+      grid-column: 1;
+      grid-row: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .cpu {
+      background: var(--cpu-fill);
+      border-color: var(--cpu-stroke);
+      height: 80px;
+    }
+
+    /* GPU section */
+    .gpu-section {
+      grid-column: 2;
+      grid-row: 1 / 3;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .gpu {
+      background: var(--gpu-fill);
+      border-color: var(--gpu-stroke);
+      min-height: 100px;
+    }
+
+    /* NVSwitch section */
+    .nvswitch-section {
+      grid-column: 2;
+      grid-row: 3;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    .nvswitch {
+      background: var(--nvswitch-fill);
+      border-color: var(--nvswitch-stroke);
+      width: 100px;
+      height: 70px;
+    }
+
+    /* Compute fabric section */
+    .compute-section {
+      grid-column: 3;
+      grid-row: 1 / 3;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .compute-section-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-align: center;
+      padding-bottom: 4px;
+      border-bottom: 1px dashed #3d3d4a;
+      margin-bottom: 4px;
+    }
+
+    .connectx {
+      background: var(--connectx-fill);
+      border-color: var(--connectx-stroke);
+      flex: 1;
+      min-height: 45px;
+    }
+
+    /* Storage section */
+    .storage-section {
+      grid-column: 1;
+      grid-row: 2 / 4;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .storage-section-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-align: center;
+      padding-bottom: 4px;
+      border-bottom: 1px dashed #3d3d4a;
+      margin-bottom: 4px;
+    }
+
+    .storage-nic {
+      background: var(--storage-fill);
+      border-color: var(--storage-stroke);
+      flex: 1;
+      min-height: 60px;
+    }
+
+    /* External ports visualization */
+    .external-ports {
+      grid-column: 3;
+      grid-row: 3;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .port-group {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+    }
+
+    .port {
+      width: 24px;
+      height: 16px;
+      background: #2d3436;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .port:hover {
+      background: #636e72;
+    }
+
+    .port-label {
+      font-size: 0.6rem;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+
+    /* SVG connections layer */
+    .connections-svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .chassis-interior {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Connection legend */
+    .legend {
+      display: flex;
+      gap: 24px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #2a2a35;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .legend-line {
+      width: 30px;
+      height: 3px;
+      border-radius: 2px;
+    }
+
+    .legend-line.nvlink {
+      background: var(--nvlink-color);
+    }
+
+    .legend-line.pcie {
+      background: var(--pcie-color);
+    }
+
+    .legend-line.external {
+      background: var(--external-color);
+    }
+
+    /* Info panel */
+    .info-panel {
+      width: 380px;
+      background: #12121a;
+      border-left: 1px solid #2a2a35;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+    }
+
+    .info-panel.open {
+      transform: translateX(0);
+    }
+
+    .info-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid #2a2a35;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .info-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .info-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-secondary);
+      line-height: 1;
+      padding: 0;
+    }
+
+    .close-btn:hover {
+      color: var(--text);
+    }
+
+    .info-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .info-section {
+      margin-bottom: 24px;
+    }
+
+    .info-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .info-section h3 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+
+    .info-section p {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: var(--text);
+    }
+
+    .spec-list {
+      list-style: none;
+    }
+
+    .spec-list li {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #2a2a35;
+      font-size: 0.85rem;
+    }
+
+    .spec-list li:last-child {
+      border-bottom: none;
+    }
+
+    .spec-label {
+      color: var(--text-secondary);
+    }
+
+    .spec-value {
+      font-weight: 500;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .cluster-context {
+      background: #1a1a24;
+      border-radius: 6px;
+      padding: 16px;
+      border-left: 3px solid var(--nvlink-color);
+    }
+
+    .cluster-context h4 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .cluster-context p {
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: var(--text-secondary);
+    }
+
+    /* Placeholder when no component selected */
+    .placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-secondary);
+      text-align: center;
+      padding: 40px;
+    }
+
+    .placeholder-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .placeholder p {
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    /* Instructions */
+    .instructions {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 0.5s;
+    }
+
+    .instructions.hidden {
+      opacity: 0;
+    }
+
+    /* Responsive */
+    @media (max-width: 1100px) {
+      .info-panel {
+        position: fixed;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 100;
+        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .chassis-interior {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+      }
+
+      .cpu-section,
+      .gpu-section,
+      .nvswitch-section,
+      .compute-section,
+      .storage-section,
+      .external-ports {
+        grid-column: 1;
+        grid-row: auto;
+      }
+
+      .gpu-section {
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: repeat(4, 1fr);
+      }
+
+      .info-panel {
+        width: 100%;
+      }
     }
   </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-    "vite": "https://aistudiocdn.com/vite@^7.2.6"
-  }
-}
-</script>
 </head>
 
 <body>
-  <div id="root"></div>
-  <script type="module" src="/index.tsx"></script>
+  <header class="header">
+    <h1>NVIDIA DGX H100 — Single Node Architecture</h1>
+    <p>Click any component to understand its role in cluster-scale AI operations</p>
+  </header>
+
+  <div class="main">
+    <div class="diagram-area">
+      <div class="chassis">
+        <span class="chassis-label">DGX H100 NODE</span>
+
+        <div class="chassis-interior">
+          <!-- CPU Section -->
+          <div class="cpu-section">
+            <div class="component cpu" data-component="cpu">
+              <span class="component-label">CPU 0</span>
+              <span class="component-sublabel">Xeon 8480C</span>
+            </div>
+            <div class="component cpu" data-component="cpu">
+              <span class="component-label">CPU 1</span>
+              <span class="component-sublabel">Xeon 8480C</span>
+            </div>
+          </div>
+
+          <!-- GPU Section -->
+          <div class="gpu-section">
+            <div class="component gpu" data-component="gpu">
+              <span class="component-label">GPU 0</span>
+              <span class="component-sublabel">H100 SXM</span>
+              <span class="component-sublabel">80GB HBM3</span>
+            </div>
+            <div class="component gpu" data-component="gpu">
+              <span class="component-label">GPU 1</span>
+              <span class="component-sublabel">H100 SXM</span>
+              <span class="component-sublabel">80GB HBM3</span>
+            </div>
+            <div class="component gpu" data-component="gpu">
+              <span class="component-label">GPU 2</span>
+              <span class="component-sublabel">H100 SXM</span>
+              <span class="component-sublabel">80GB HBM3</span>
+            </div>
+            <div class="component gpu" data-component="gpu">
+              <span class="component-label">GPU 3</span>
+              <span class="component-sublabel">H100 SXM</span>
+              <span class="component-sublabel">80GB HBM3</span>
+            </div>
+            <div class="component gpu" data-component="gpu">
+              <span class="component-label">GPU 4</span>
+              <span class="component-sublabel">H100 SXM</span>
+              <span class="component-sublabel">80GB HBM3</span>
+            </div>
+            <div class="component gpu" data-component="gpu">
+              <span class="component-label">GPU 5</span>
+              <span class="component-sublabel">H100 SXM</span>
+              <span class="component-sublabel">80GB HBM3</span>
+            </div>
+            <div class="component gpu" data-component="gpu">
+              <span class="component-label">GPU 6</span>
+              <span class="component-sublabel">H100 SXM</span>
+              <span class="component-sublabel">80GB HBM3</span>
+            </div>
+            <div class="component gpu" data-component="gpu">
+              <span class="component-label">GPU 7</span>
+              <span class="component-sublabel">H100 SXM</span>
+              <span class="component-sublabel">80GB HBM3</span>
+            </div>
+          </div>
+
+          <!-- Compute Fabric Section -->
+          <div class="compute-section">
+            <div class="compute-section-label">COMPUTE FABRIC<br />(Cedar7 Mezzanine)</div>
+            <div class="component connectx" data-component="connectx">
+              <span class="component-label">ConnectX-7</span>
+              <span class="component-sublabel">→ OSFP 1</span>
+            </div>
+            <div class="component connectx" data-component="connectx">
+              <span class="component-label">ConnectX-7</span>
+              <span class="component-sublabel">→ OSFP 1</span>
+            </div>
+            <div class="component connectx" data-component="connectx">
+              <span class="component-label">ConnectX-7</span>
+              <span class="component-sublabel">→ OSFP 2</span>
+            </div>
+            <div class="component connectx" data-component="connectx">
+              <span class="component-label">ConnectX-7</span>
+              <span class="component-sublabel">→ OSFP 2</span>
+            </div>
+            <div class="component connectx" data-component="connectx">
+              <span class="component-label">ConnectX-7</span>
+              <span class="component-sublabel">→ OSFP 3</span>
+            </div>
+            <div class="component connectx" data-component="connectx">
+              <span class="component-label">ConnectX-7</span>
+              <span class="component-sublabel">→ OSFP 3</span>
+            </div>
+            <div class="component connectx" data-component="connectx">
+              <span class="component-label">ConnectX-7</span>
+              <span class="component-sublabel">→ OSFP 4</span>
+            </div>
+            <div class="component connectx" data-component="connectx">
+              <span class="component-label">ConnectX-7</span>
+              <span class="component-sublabel">→ OSFP 4</span>
+            </div>
+          </div>
+
+          <!-- Storage Section -->
+          <div class="storage-section">
+            <div class="storage-section-label">STORAGE FABRIC<br />(PCIe Cards)</div>
+            <div class="component storage-nic" data-component="storage">
+              <span class="component-label">ConnectX-7</span>
+              <span class="component-sublabel">QSFP112 ×2</span>
+            </div>
+            <div class="component storage-nic" data-component="storage">
+              <span class="component-label">ConnectX-7</span>
+              <span class="component-sublabel">QSFP112 ×2</span>
+            </div>
+          </div>
+
+          <!-- NVSwitch Section -->
+          <div class="nvswitch-section">
+            <div class="component nvswitch" data-component="nvswitch">
+              <span class="component-label">NVSwitch</span>
+              <span class="component-sublabel">Gen 3</span>
+            </div>
+            <div class="component nvswitch" data-component="nvswitch">
+              <span class="component-label">NVSwitch</span>
+              <span class="component-sublabel">Gen 3</span>
+            </div>
+            <div class="component nvswitch" data-component="nvswitch">
+              <span class="component-label">NVSwitch</span>
+              <span class="component-sublabel">Gen 3</span>
+            </div>
+            <div class="component nvswitch" data-component="nvswitch">
+              <span class="component-label">NVSwitch</span>
+              <span class="component-sublabel">Gen 3</span>
+            </div>
+          </div>
+
+          <!-- External Ports -->
+          <div class="external-ports">
+            <div class="component" data-component="osfp"
+              style="background: #1e2530; border-color: #4a5568; padding: 8px;">
+              <span class="component-label" style="font-size: 0.65rem;">4× OSFP Ports</span>
+              <span class="component-sublabel">8×400G to Cluster</span>
+            </div>
+            <div class="component" data-component="qsfp"
+              style="background: #3d3520; border-color: #eab308; padding: 8px;">
+              <span class="component-label" style="font-size: 0.65rem;">QSFP112 Ports</span>
+              <span class="component-sublabel">To Storage</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+          <div class="legend-item">
+            <div class="legend-line nvlink"></div>
+            <span>NVLink v4 (GPU↔NVSwitch)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-line pcie"></div>
+            <span>PCIe Gen5 (CPU↔Components)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-line external"></div>
+            <span>External Network (To Other Nodes)</span>
+          </div>
+        </div>
+
+        <div class="instructions" id="instructions">Click any component to learn about it</div>
+      </div>
+    </div>
+
+    <!-- Info Panel -->
+    <div class="info-panel" id="infoPanel">
+      <div id="panelContent">
+        <div class="placeholder">
+          <div class="placeholder-icon">←</div>
+          <p>Select a component from the diagram to see detailed information about its role in the system.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const componentData = {
+      gpu: {
+        title: 'H100 Tensor Core GPU',
+        subtitle: '8 units per node',
+        what: `The H100 is the primary compute engine. Each GPU contains 80GB of HBM3 memory and thousands of CUDA/Tensor cores optimized for matrix operations that dominate deep learning workloads.`,
+        specs: [
+          ['Memory', '80 GB HBM3'],
+          ['Memory Bandwidth', '3.35 TB/s'],
+          ['NVLink Connections', '18 links'],
+          ['NVLink Bandwidth', '900 GB/s'],
+          ['Form Factor', 'SXM5']
+        ],
+        clusterContext: `In a multi-node cluster, the 8 GPUs in this node work on a portion of the model or data. During training, each GPU computes gradients on its local batch. These gradients must be synchronized with GPUs in other nodes—this is where the NVSwitch (intra-node) and ConnectX-7 (inter-node) become critical. The GPU's 18 NVLink connections ensure it can communicate with all other GPUs in this node at 900 GB/s without any CPU involvement.`
+      },
+      nvswitch: {
+        title: 'NVSwitch Gen 3',
+        subtitle: '4 units per node',
+        what: `The NVSwitch is a specialized switch ASIC that creates an all-to-all connection mesh between the 8 GPUs. Unlike traditional network switches, it supports memory semantics—GPUs can directly read/write each other's memory.`,
+        specs: [
+          ['Total System Bandwidth', '7.2 TB/s'],
+          ['Topology', 'Non-blocking all-to-all'],
+          ['Protocol', 'NVLink v4'],
+          ['In-Network Compute', 'SHARP (FP32/BF16)'],
+          ['Link Distribution', '5+4+4+5 per GPU']
+        ],
+        clusterContext: `When training a model too large for one GPU (model parallelism), activation tensors must flow between GPUs during forward/backward passes. The NVSwitch enables this at 7.2 TB/s aggregate bandwidth. Critically, it also performs SHARP—in-network gradient reduction. Instead of GPUs summing gradients themselves, the NVSwitch does the math as data passes through, freeing GPU cycles for the next compute step. This is the "intra-node" portion of the all-reduce operation.`
+      },
+      cpu: {
+        title: 'Intel Xeon 8480C',
+        subtitle: '2 units per node (Sapphire Rapids)',
+        what: `The dual CPUs serve as the system orchestrators. They handle job scheduling, memory management, and coordinate the PCIe fabric. They are NOT used for AI compute—that's entirely offloaded to GPUs.`,
+        specs: [
+          ['Cores', '56 cores each'],
+          ['PCIe Generation', 'Gen 5'],
+          ['PCIe Bandwidth', '64 GB/s per x16 slot'],
+          ['Memory', 'DDR5 System RAM'],
+          ['Role', 'Orchestration, not compute']
+        ],
+        clusterContext: `In cluster operations, the CPUs launch kernels, manage data loading pipelines, and coordinate with the cluster scheduler (like Slurm or Kubernetes). PCIe Gen 5 is critical here—it's the first generation fast enough to saturate a 400 Gb/s network link. The dual-CPU design enables NUMA-aware placement: storage NICs connect to one CPU's PCIe root, compute NICs to both, ensuring balanced bandwidth distribution.`
+      },
+      connectx: {
+        title: 'ConnectX-7 (Compute Fabric)',
+        subtitle: '8 units on Cedar7 mezzanine',
+        what: `These network controllers connect each GPU to the external cluster network. The "Cedar7" is a custom mezzanine board that places 4 ConnectX-7 chips close to the GPUs, minimizing signal path length for 400G signaling.`,
+        specs: [
+          ['Speed', '400 Gb/s per controller'],
+          ['Total Controllers', '8 (1:1 with GPUs)'],
+          ['Physical Ports', '4× OSFP (twin-port)'],
+          ['Protocols', 'InfiniBand NDR / 400GbE'],
+          ['Total Bandwidth', '3.2 TB/s']
+        ],
+        clusterContext: `This is the "inter-node" fabric. When gradients need to be synchronized across nodes (not just within this node), they flow through these NICs. The 1:1 GPU-to-NIC mapping means each GPU has dedicated 400 Gb/s bandwidth to the cluster—no contention. GPUDirect RDMA allows the ConnectX-7 to DMA data directly from GPU memory to the network, bypassing CPU entirely. In a 256-node SuperPOD, this fabric carries the gradient traffic that synchronizes 2,048 GPUs.`
+      },
+      storage: {
+        title: 'ConnectX-7 (Storage Fabric)',
+        subtitle: '2 PCIe cards with QSFP112 ports',
+        what: `These are standard PCIe add-in cards (not on the Cedar7 mezzanine) that handle storage I/O and management traffic. They're physically separated from compute traffic to prevent contention.`,
+        specs: [
+          ['Form Factor', 'PCIe Gen 5 x16'],
+          ['Ports', 'QSFP112 (400G capable)'],
+          ['Compatibility', 'QSFP56/28 backward compatible'],
+          ['Feature', 'GPUDirect Storage'],
+          ['Use Case', 'Data ingestion + Management']
+        ],
+        clusterContext: `Training data must flow into GPU memory constantly. Without dedicated storage bandwidth, data loading would compete with gradient synchronization—disaster for performance. GPUDirect Storage enables the NIC to DMA training data directly into GPU HBM3, bypassing CPU and system RAM entirely. The QSFP112 form factor was chosen for backward compatibility with existing storage infrastructure (many data lakes still use 100G/200G).`
+      },
+      osfp: {
+        title: 'OSFP Ports (Compute Fabric)',
+        subtitle: '4 physical cages → 8 logical links',
+        what: `OSFP (Octal Small Form-factor Pluggable) is a high-density optical transceiver standard. Each cage in the DGX H100 is wired as "twin-port"—it carries two independent 400G links, one from each of two ConnectX-7 chips.`,
+        specs: [
+          ['Physical Ports', '4 OSFP cages'],
+          ['Logical Links', '8× 400 Gb/s'],
+          ['Configuration', 'Twin-port (2×400G per cage)'],
+          ['Why OSFP', 'Better thermal management'],
+          ['Transceiver Type', 'Finned-top for cooling']
+        ],
+        clusterContext: `These ports connect to Quantum-2 InfiniBand switches (or Spectrum Ethernet switches) that form the cluster spine. The "rail-optimized" topology means OSFP port 1 on Node A connects to the same switch as OSFP port 1 on Node B. During all-reduce, traffic flows predictably: GPU 0's gradients go through ConnectX-7 #0 → OSFP 1 → Switch → OSFP 1 on destination → ConnectX-7 #0 → GPU 0. This rail alignment maximizes bisection bandwidth.`
+      },
+      qsfp: {
+        title: 'QSFP112 Ports (Storage Fabric)',
+        subtitle: 'Standard ports for storage/management',
+        what: `QSFP112 is the latest evolution of the widely-deployed QSFP form factor. Unlike the OSFP ports used for compute, these connect to your existing storage network and support older QSFP56/QSFP28 transceivers.`,
+        specs: [
+          ['Speed', 'Up to 400 Gb/s'],
+          ['Backward Compat', 'QSFP56 (200G), QSFP28 (100G)'],
+          ['Connected To', 'Storage arrays, NAS, management'],
+          ['Why Not OSFP', 'Legacy infrastructure support'],
+          ['Bonding', 'LACP/Active-backup for HA']
+        ],
+        clusterContext: `While the compute fabric is typically a greenfield deployment with new switches and cables, storage networks often preexist. Your petabyte-scale data lake might run on 100G Ethernet. The QSFP112 ports let the DGX H100 plug into that existing infrastructure without expensive adapters. This separation also ensures that a storage I/O storm (loading a massive dataset) doesn't impact the latency-sensitive gradient synchronization traffic on the compute fabric.`
+      }
+    };
+
+    const infoPanel = document.getElementById('infoPanel');
+    const panelContent = document.getElementById('panelContent');
+    const instructions = document.getElementById('instructions');
+    let selectedComponent = null;
+
+    function showComponentInfo(componentType) {
+      const data = componentData[componentType];
+      if (!data) return;
+
+      instructions.classList.add('hidden');
+      infoPanel.classList.add('open');
+
+      panelContent.innerHTML = `
+                <div class="info-header">
+                    <div>
+                        <h2 class="info-title">${data.title}</h2>
+                        <p class="info-subtitle">${data.subtitle}</p>
+                    </div>
+                    <button class="close-btn" onclick="closePanel()">×</button>
+                </div>
+                <div class="info-content">
+                    <div class="info-section">
+                        <h3>What It Is</h3>
+                        <p>${data.what}</p>
+                    </div>
+                    <div class="info-section">
+                        <h3>Specifications</h3>
+                        <ul class="spec-list">
+                            ${data.specs.map(([label, value]) => `
+                                <li>
+                                    <span class="spec-label">${label}</span>
+                                    <span class="spec-value">${value}</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                    <div class="info-section">
+                        <h3>Role in Cluster Operations</h3>
+                        <div class="cluster-context">
+                            <p>${data.clusterContext}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+    }
+
+    function closePanel() {
+      infoPanel.classList.remove('open');
+      if (selectedComponent) {
+        selectedComponent.classList.remove('selected');
+        selectedComponent = null;
+      }
+    }
+
+    // Event listeners
+    document.querySelectorAll('.component').forEach(comp => {
+      comp.addEventListener('click', (e) => {
+        const componentType = comp.dataset.component;
+
+        // Update selection state
+        if (selectedComponent) {
+          selectedComponent.classList.remove('selected');
+        }
+        comp.classList.add('selected');
+        selectedComponent = comp;
+
+        showComponentInfo(componentType);
+      });
+    });
+
+    // Close panel when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.component') && !e.target.closest('.info-panel')) {
+        closePanel();
+      }
+    });
+
+    // Keyboard support
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closePanel();
+      }
+    });
+  </script>
 </body>
 
 </html>
